@@ -2,6 +2,7 @@ import { GeminiApiService } from './gemini/gemini-core.js'; // 导入geminiApiSe
 import { OpenAIApiService } from './openai/openai-core.js'; // 导入OpenAIApiService
 import { ClaudeApiService } from './claude/claude-core.js'; // 导入ClaudeApiService
 import { KiroApiService } from './claude/claude-kiro.js'; // 导入KiroApiService
+import { QwenApiService } from './openai/qwen-core.js'; // 导入QwenApiService
 import { MODEL_PROVIDER } from './common.js'; // 导入 MODEL_PROVIDER
 
 // 定义AI服务适配器接口
@@ -55,9 +56,9 @@ export class GeminiApiServiceAdapter extends ApiServiceAdapter {
     constructor(config) {
         super();
         this.geminiApiService = new GeminiApiService(config);
-        this.geminiApiService.initialize().catch(error => {
-            console.error("Failed to initialize geminiApiService:", error);
-        });
+        // this.geminiApiService.initialize().catch(error => {
+        //     console.error("Failed to initialize geminiApiService:", error);
+        // });
     }
 
     async generateContent(model, requestBody) {
@@ -158,24 +159,36 @@ export class KiroApiServiceAdapter extends ApiServiceAdapter {
     constructor(config) {
         super();
         this.kiroApiService = new KiroApiService(config);
-        this.kiroApiService.initialize().catch(error => {
-            console.error("Failed to initialize kiroApiService:", error);
-        });
+        // this.kiroApiService.initialize().catch(error => {
+        //     console.error("Failed to initialize kiroApiService:", error);
+        // });
     }
 
     async generateContent(model, requestBody) {
         // The adapter expects the requestBody to be in OpenAI format for Kiro API
+        if (!this.kiroApiService.isInitialized) {
+            console.warn("kiroApiService not initialized, attempting to re-initialize...");
+            await this.kiroApiService.initialize();
+        }
         return this.kiroApiService.generateContent(model, requestBody);
     }
 
     async *generateContentStream(model, requestBody) {
         // The adapter expects the requestBody to be in OpenAI format for Kiro API
+        if (!this.kiroApiService.isInitialized) {
+            console.warn("kiroApiService not initialized, attempting to re-initialize...");
+            await this.kiroApiService.initialize();
+        }
         const stream = this.kiroApiService.generateContentStream(model, requestBody);
         yield* stream;
     }
 
     async listModels() {
         // Returns the native model list from the Kiro service
+        if (!this.kiroApiService.isInitialized) {
+            console.warn("kiroApiService not initialized, attempting to re-initialize...");
+            await this.kiroApiService.initialize();
+        }
         return this.kiroApiService.listModels();
     }
 
@@ -188,29 +201,74 @@ export class KiroApiServiceAdapter extends ApiServiceAdapter {
     }
 }
 
+// Qwen API 服务适配器
+export class QwenApiServiceAdapter extends ApiServiceAdapter {
+    constructor(config) {
+        super();
+        this.qwenApiService = new QwenApiService(config);
+    }
+
+    async generateContent(model, requestBody) {
+        if (!this.qwenApiService.isInitialized) {
+            console.warn("qwenApiService not initialized, attempting to re-initialize...");
+            await this.qwenApiService.initialize();
+        }
+        return this.qwenApiService.generateContent(model, requestBody);
+    }
+
+    async *generateContentStream(model, requestBody) {
+        if (!this.qwenApiService.isInitialized) {
+            console.warn("qwenApiService not initialized, attempting to re-initialize...");
+            await this.qwenApiService.initialize();
+        }
+        yield* this.qwenApiService.generateContentStream(model, requestBody);
+    }
+
+    async listModels() {
+        if (!this.qwenApiService.isInitialized) {
+            console.warn("qwenApiService not initialized, attempting to re-initialize...");
+            await this.qwenApiService.initialize();
+        }
+        return this.qwenApiService.listModels();
+    }
+
+    async refreshToken() {
+        if (this.qwenApiService.isExpiryDateNear()) {
+            console.log(`[Qwen] Expiry date is near, refreshing token...`);
+            return this.qwenApiService._initializeAuth(true);
+        }
+        return Promise.resolve();
+    }
+}
+
 // 用于存储服务适配器单例的映射
 export const serviceInstances = {};
 
 // 服务适配器工厂
 export function getServiceAdapter(config) {
+    console.log(`[Adapter] getServiceAdapter, provider: ${config.MODEL_PROVIDER}, uuid: ${config.uuid}`);
     const provider = config.MODEL_PROVIDER;
-    if (!serviceInstances[provider]) {
+    const providerKey = config.uuid ? provider + config.uuid : provider;
+    if (!serviceInstances[providerKey]) {
         switch (provider) {
             case MODEL_PROVIDER.OPENAI_CUSTOM:
-                serviceInstances[provider] = new OpenAIApiServiceAdapter(config);
+                serviceInstances[providerKey] = new OpenAIApiServiceAdapter(config);
                 break;
             case MODEL_PROVIDER.GEMINI_CLI:
-                serviceInstances[provider] = new GeminiApiServiceAdapter(config);
+                serviceInstances[providerKey] = new GeminiApiServiceAdapter(config);
                 break;
             case MODEL_PROVIDER.CLAUDE_CUSTOM:
-                serviceInstances[provider] = new ClaudeApiServiceAdapter(config);
+                serviceInstances[providerKey] = new ClaudeApiServiceAdapter(config);
                 break;
             case MODEL_PROVIDER.KIRO_API:
-                serviceInstances[provider] = new KiroApiServiceAdapter(config);
+                serviceInstances[providerKey] = new KiroApiServiceAdapter(config);
+                break;
+            case MODEL_PROVIDER.QWEN_API:
+                serviceInstances[providerKey] = new QwenApiServiceAdapter(config);
                 break;
             default:
                 throw new Error(`Unsupported model provider: ${provider}`);
         }
     }
-    return serviceInstances[provider];
+    return serviceInstances[providerKey];
 }

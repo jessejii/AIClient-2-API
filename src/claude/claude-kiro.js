@@ -260,7 +260,7 @@ export class KiroApiService {
  
     async initialize() {
         if (this.isInitialized) return;
-        console.log('[Kiro] Initializing Gemini API Service...');
+        console.log('[Kiro] Initializing Kiro API Service...');
         await this.initializeAuth();
         const macSha256 = await getMacAddressSha256();
         this.axiosInstance = axios.create({
@@ -414,7 +414,7 @@ async initializeAuth(forceRefresh = false) {
                 requestBody.grantType = 'refresh_token';
             }
             const response = await this.axiosInstance.post(refreshUrl, requestBody);
-            console.log('[Kiro Auth] Token refresh response:', response.data);
+            console.log('[Kiro Auth] Token refresh response: ok');
 
             if (response.data && response.data.accessToken) {
                 this.accessToken = response.data.accessToken;
