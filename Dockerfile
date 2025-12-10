@@ -29,7 +29,7 @@ RUN mkdir -p /app/logs
 EXPOSE 7066
 
 # 添加健康检查
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=3000s --timeout=3s --start-period=5s --retries=3 \
   CMD node healthcheck.js || exit 1
 
 # 设置启动命令
