@@ -17,7 +17,7 @@ const options = {
   method: 'GET',
   timeout: 2000 // 2秒超时
 };
-
+/*
 const req = http.request(options, (res) => {
   // 如果状态码是200，表示服务健康
   if (res.statusCode === 200) {
@@ -28,7 +28,7 @@ const req = http.request(options, (res) => {
     process.exit(1);
   }
 });
-
+*/
 // 处理请求错误
 req.on('error', (e) => {
   console.error(`Health check failed: ${e.message}`);
